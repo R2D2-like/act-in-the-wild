@@ -40,12 +40,24 @@ def find_valid_timestamp_sequence(timestamps, idx, horizon, direction = 1, time_
     res = []
     last_ts = timestamps[idx]
     idx += direction
+    # print('len(timestamps)', len(timestamps)) # 300
+    if horizon != 0:
+        print(f"Initial idx: {idx}, len(timestamps): {len(timestamps)}, horizon: {horizon}, direction: {direction}")
     while idx >= 0 and idx < len(timestamps) and horizon > 0:
-        if (timestamps[idx] - last_ts) * direction >= time_per_sample * 1000:
-            res.append(timestamps[idx])
-            last_ts = timestamps[idx]
-            horizon = horizon - 1
+        # if (timestamps[idx] - last_ts) * direction >= time_per_sample * 1000:
+            # res.append(timestamps[idx])
+            # last_ts = timestamps[idx]
+            # horizon = horizon - 1
+        if horizon != 0:
+            print(f"Loop idx: {idx}, Current timestamp: {timestamps[idx]}, Horizon: {horizon}")
+        res.append(timestamps[idx])
+        last_ts = timestamps[idx]
+        horizon = horizon - 1
         idx += direction
+        
+    # print('len(res)', len(res)) 
+    if horizon != 0:
+        print(f"Final result length: {len(res)}, Result: {res}")
     return res
 
 
@@ -83,6 +95,7 @@ class HorizonRecorder(object):
         self.rec.append(self.func(x, *args))
     
     def pad(self, padding_mode = "same"):
+        # print('self.rec[-1]', self.rec)
         if padding_mode == "same":
             self.rec.append(self.rec[-1])
         elif padding_mode == "zero":
@@ -213,9 +226,9 @@ class WholeArmDataset(Dataset):
             timestamps = sample_timestamps(meta["timestamps"], meta["start_time"], meta["stop_time"])
             self.timestamps[scene_path] = timestamps
             final_timestamp = timestamps[-1]
-            for i in range(len(timestamps)):
-                if final_timestamp - timestamps[i] < cfgs.tps * 1000:
-                    break
+            for i in range(len(timestamps)-1):
+                # if final_timestamp - timestamps[i] < cfgs.tps * 1000:
+                #     break
                 self.data.append({
                     "path": scene_path,
                     "timestamp": timestamps[i],
@@ -233,6 +246,8 @@ class WholeArmDataset(Dataset):
         if idx < 0 or idx >= len(self.data):
             raise AttributeError("Index out of bound.")
         sample = self.data[idx]
+        # print('len(sample["action_timestamps"])', len(sample["action_timestamps"])) # 1
+        # exit()
         res = {}
         cur = np.load(os.path.join(sample["path"], "{}.npy".format(sample["timestamp"])), allow_pickle = True).item()
         with_gripper_l = ("gripper_left" in cur.keys())
@@ -251,18 +266,18 @@ class WholeArmDataset(Dataset):
                 obs_depth = HorizonRecorder(lambda x: torch.stack((self.depth_process(x["depth"]), self.depth_process(x["depth_up"]))))
             else:
                 obs_depth = HorizonRecorder(lambda x: self.depth_process(x["depth"]))
-        obs_joint_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][0:7]).float())
-        obs_jointvel_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][7:14]).float())
-        obs_tcp_l = HorizonRecorder(lambda x: torch.from_numpy(convert_tcp(x["robot_left"][14:21])).float())
-        obs_tcpvel_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][21:27]).float())
-        obs_fttcp_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][27:33]).float())
-        obs_ftbase_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][33:39]).float())
-        obs_joint_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][0:7]).float())
-        obs_jointvel_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][7:14]).float())
-        obs_tcp_r = HorizonRecorder(lambda x: torch.from_numpy(convert_tcp(x["robot_right"][14:21])).float())
-        obs_tcpvel_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][21:27]).float())
-        obs_fttcp_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][27:33]).float())
-        obs_ftbase_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][33:39]).float())
+        obs_joint_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"]).float())
+        # obs_jointvel_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][7:14]).float())
+        # obs_tcp_l = HorizonRecorder(lambda x: torch.from_numpy(convert_tcp(x["robot_left"][14:21])).float())
+        # obs_tcpvel_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][21:27]).float())
+        # obs_fttcp_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][27:33]).float())
+        # obs_ftbase_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][33:39]).float())
+        obs_joint_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"]).float())
+        # obs_jointvel_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][7:14]).float())
+        # obs_tcp_r = HorizonRecorder(lambda x: torch.from_numpy(convert_tcp(x["robot_right"][14:21])).float())
+        # obs_tcpvel_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][21:27]).float())
+        # obs_fttcp_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][27:33]).float())
+        # obs_ftbase_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][33:39]).float())
         if with_gripper_l:
             obs_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["gripper_left"][0])]).float())
         if with_gripper_r:
@@ -275,17 +290,17 @@ class WholeArmDataset(Dataset):
         if self.cfgs.obs_with_depth:
             obs_depth.add(cur)
         obs_joint_l.add(cur)
-        obs_jointvel_l.add(cur)
-        obs_tcp_l.add(cur)
-        obs_tcpvel_l.add(cur)
-        obs_fttcp_l.add(cur)
-        obs_ftbase_l.add(cur)
+        # obs_jointvel_l.add(cur)
+        # obs_tcp_l.add(cur)
+        # obs_tcpvel_l.add(cur)
+        # obs_fttcp_l.add(cur)
+        # obs_ftbase_l.add(cur)
         obs_joint_r.add(cur)
-        obs_jointvel_r.add(cur)
-        obs_tcp_r.add(cur)
-        obs_tcpvel_r.add(cur)
-        obs_fttcp_r.add(cur)
-        obs_ftbase_r.add(cur)
+        # obs_jointvel_r.add(cur)
+        # obs_tcp_r.add(cur)
+        # obs_tcpvel_r.add(cur)
+        # obs_fttcp_r.add(cur)
+        # obs_ftbase_r.add(cur)
         if with_gripper_l:
             obs_gripper_l.add(cur)
         if with_gripper_r:
@@ -300,17 +315,17 @@ class WholeArmDataset(Dataset):
             if self.cfgs.obs_with_depth:
                 obs_depth.add(his)
             obs_joint_l.add(his)
-            obs_jointvel_l.add(his)
-            obs_tcp_l.add(his)
-            obs_tcpvel_l.add(his)
-            obs_fttcp_l.add(his)
-            obs_ftbase_l.add(his)
+            # obs_jointvel_l.add(his)
+            # obs_tcp_l.add(his)
+            # obs_tcpvel_l.add(his)
+            # obs_fttcp_l.add(his)
+            # obs_ftbase_l.add(his)
             obs_joint_r.add(his)
-            obs_jointvel_r.add(his)
-            obs_tcp_r.add(his)
-            obs_tcpvel_r.add(his)
-            obs_fttcp_r.add(his)
-            obs_ftbase_r.add(his)
+            # obs_jointvel_r.add(his)
+            # obs_tcp_r.add(his)
+            # obs_tcpvel_r.add(his)
+            # obs_fttcp_r.add(his)
+            # obs_ftbase_r.add(his)
             if with_gripper_l:
                 obs_gripper_l.add(his)
             if with_gripper_r:
@@ -324,17 +339,17 @@ class WholeArmDataset(Dataset):
             if self.cfgs.obs_with_depth:
                 obs_depth.pad()
             obs_joint_l.pad()
-            obs_jointvel_l.pad()
-            obs_tcp_l.pad()
-            obs_tcpvel_l.pad()
-            obs_fttcp_l.pad()
-            obs_ftbase_l.pad()
+            # obs_jointvel_l.pad()
+            # obs_tcp_l.pad()
+            # obs_tcpvel_l.pad()
+            # obs_fttcp_l.pad()
+            # obs_ftbase_l.pad()
             obs_joint_r.pad()
-            obs_jointvel_r.pad()
-            obs_tcp_r.pad()
-            obs_tcpvel_r.pad()
-            obs_fttcp_r.pad()
-            obs_ftbase_r.pad()
+            # obs_jointvel_r.pad()
+            # obs_tcp_r.pad()
+            # obs_tcpvel_r.pad()
+            # obs_fttcp_r.pad()
+            # obs_ftbase_r.pad()
             if with_gripper_l:
                 obs_gripper_l.pad()
             if with_gripper_r:
@@ -349,17 +364,17 @@ class WholeArmDataset(Dataset):
         if self.cfgs.obs_with_depth:
             res["obs/depth"] = obs_depth.to_tensor()
         res["obs/left_joint"] = obs_joint_l.to_tensor()
-        res["obs/left_joint_vel"] = obs_jointvel_l.to_tensor()
-        res["obs/left_tcp"] = obs_tcp_l.to_tensor()
-        res["obs/left_tcpvel"] = obs_tcpvel_l.to_tensor()
-        res["obs/left_fttcp"] = obs_fttcp_l.to_tensor()
-        res["obs/left_ftbase"] = obs_ftbase_l.to_tensor()
+        # res["obs/left_joint_vel"] = obs_jointvel_l.to_tensor()
+        # res["obs/left_tcp"] = obs_tcp_l.to_tensor()
+        # res["obs/left_tcpvel"] = obs_tcpvel_l.to_tensor()
+        # res["obs/left_fttcp"] = obs_fttcp_l.to_tensor()
+        # res["obs/left_ftbase"] = obs_ftbase_l.to_tensor()
         res["obs/right_joint"] = obs_joint_r.to_tensor()
-        res["obs/right_joint_vel"] = obs_jointvel_r.to_tensor()
-        res["obs/right_tcp"] = obs_tcp_r.to_tensor()
-        res["obs/right_tcpvel"] = obs_tcpvel_r.to_tensor()
-        res["obs/right_fttcp"] = obs_fttcp_r.to_tensor()
-        res["obs/right_ftbase"] = obs_ftbase_r.to_tensor()
+        # res["obs/right_joint_vel"] = obs_jointvel_r.to_tensor()
+        # res["obs/right_tcp"] = obs_tcp_r.to_tensor()
+        # res["obs/right_tcpvel"] = obs_tcpvel_r.to_tensor()
+        # res["obs/right_fttcp"] = obs_fttcp_r.to_tensor()
+        # res["obs/right_ftbase"] = obs_ftbase_r.to_tensor()
         if with_gripper_l:
             res["obs/left_gripper"] = obs_gripper_l.to_tensor()
         if with_gripper_r:
@@ -380,23 +395,24 @@ class WholeArmDataset(Dataset):
             else:
                 action_robot_l = HorizonRecorder(lambda x: torch.from_numpy(convert_tcp(x["robot_left"][14:21])).float())
                 action_robot_r = HorizonRecorder(lambda x: torch.from_numpy(convert_tcp(x["robot_right"][14:21])).float())
-        if with_gripper_l:
-            if self.cfgs.action_gripper_cls:
-                action_gripper_l = HorizonRecorder(
-                    lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["gripper_left"][0]), convert_gripper(y["gripper_left"][0]), self.cfgs.action_gripper_cls_threshold)])
-                )
-            else:
-                action_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["gripper_left"][0])]))
-        if with_gripper_r:
-            if self.cfgs.action_gripper_cls:
-                action_gripper_r = HorizonRecorder(
-                    lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["gripper_right"][0]), convert_gripper(y["gripper_right"][0]), self.cfgs.action_gripper_cls_threshold)])
-                )
-            else:
-                action_gripper_r = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["gripper_right"][0])]))
+        # if with_gripper_l:
+        #     if self.cfgs.action_gripper_cls:
+        #         action_gripper_l = HorizonRecorder(
+        #             lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["gripper_left"][0]), convert_gripper(y["gripper_left"][0]), self.cfgs.action_gripper_cls_threshold)])
+        #         )
+        #     else:
+        #         action_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["gripper_left"][0])]))
+        # if with_gripper_r:
+        #     if self.cfgs.action_gripper_cls:
+        #         action_gripper_r = HorizonRecorder(
+        #             lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["gripper_right"][0]), convert_gripper(y["gripper_right"][0]), self.cfgs.action_gripper_cls_threshold)])
+        #         )
+        #     else:
+        #         action_gripper_r = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["gripper_right"][0])]))
         action_terminate = HorizonRecorder(lambda x: torch.LongTensor([x]))
         # 2.2  add future action into horizon recorder
         last = cur
+        # print('len(sample["action_timestamps"])', len(sample["action_timestamps"])) # 8
         for ts in sample["action_timestamps"]:
             future = np.load(os.path.join(sample["path"], "{}.npy".format(ts)), allow_pickle = True).item()
             if self.cfgs.action_delta:
@@ -405,36 +421,36 @@ class WholeArmDataset(Dataset):
             else:
                 action_robot_l.add(future)
                 action_robot_r.add(future)
-            if with_gripper_l:
-                if self.cfgs.action_gripper_cls:
-                    action_gripper_l.add(future, last)
-                else:
-                    action_gripper_l.add(future)
-            if with_gripper_r:
-                if self.cfgs.action_gripper_cls:
-                    action_gripper_r.add(future, last)
-                else:
-                    action_gripper_r.add(future)
+            # if with_gripper_l:
+            #     if self.cfgs.action_gripper_cls:
+            #         action_gripper_l.add(future, last)
+            #     else:
+            #         action_gripper_l.add(future)
+            # if with_gripper_r:
+            #     if self.cfgs.action_gripper_cls:
+            #         action_gripper_r.add(future, last)
+            #     else:
+            #         action_gripper_r.add(future)
             action_terminate.add(ts == self.timestamps[sample["path"]][-1])
             last = future
         # 3.3  padding into the same horizon length
         for _ in range(self.cfgs.action_horizon - len(sample["action_timestamps"])):
             action_robot_l.pad(padding_mode = ("zero" if self.cfgs.action_delta else "same"))
             action_robot_r.pad(padding_mode = ("zero" if self.cfgs.action_delta else "same"))
-            if with_gripper_l:
-                action_gripper_l.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
-            if with_gripper_r:
-                action_gripper_r.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
+            # if with_gripper_l:
+            #     action_gripper_l.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
+            # if with_gripper_r:
+            #     action_gripper_r.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
             action_terminate.pad()
         # 3.4  get the final result
         res["action/is_pad"] = torch.zeros((self.cfgs.action_horizon), dtype = torch.bool)
         res["action/is_pad"][len(sample["action_timestamps"]):] = 1
         res["action/left_robot"] = action_robot_l.to_tensor()
         res["action/right_robot"] = action_robot_r.to_tensor()
-        if with_gripper_l:
-            res["action/left_gripper"] = action_gripper_l.to_tensor()
-        if with_gripper_r:
-            res["action/right_gripper"] = action_gripper_r.to_tensor()
+        # if with_gripper_l:
+        #     res["action/left_gripper"] = action_gripper_l.to_tensor()
+        # if with_gripper_r:
+        #     res["action/right_gripper"] = action_gripper_r.to_tensor()
         res["action/is_terminate"] = action_terminate.to_tensor()
         # 4. obtain the state and action according to task name
         if self.cfgs.task_name == "gather_balls":
@@ -447,6 +463,11 @@ class WholeArmDataset(Dataset):
             res["obs/robot_state_reduced"] = torch.cat([res["obs/left_joint"][:, :], res["obs/left_gripper"][:, :], res["obs/right_joint"][:, :4]], dim = -1).float()
             res["action/robot"] = torch.cat([res["action/left_robot"], res["action/left_gripper"], res["action/right_robot"]], dim = -1).float()
             res["action/robot_reduced"] = torch.cat([res["action/left_robot"][:, :], res["action/left_gripper"][:, :], res["action/right_robot"][:, :4]], dim = -1).float()
+        elif self.cfgs.task_name == "pick_box":
+            res["obs/robot_state"] = torch.cat([res["obs/left_joint"], res["obs/right_joint"]], dim = -1).float()
+            res["obs/robot_state_reduced"] = torch.cat([res["obs/left_joint"][:, :], res["obs/right_joint"][:, :4]], dim = -1).float()
+            res["action/robot"] = torch.cat([res["action/left_robot"], res["action/right_robot"]], dim = -1).float()
+            res["action/robot_reduced"] = torch.cat([res["action/left_robot"][:, :], res["action/right_robot"][:, :4]], dim = -1).float()
         for key in self.cfgs.norm_stats.keys():
             if key in res.keys():
                 res[key] = (res[key] - self.cfgs.norm_stats[key]["mean"]) / self.cfgs.norm_stats[key]["std"]
@@ -593,15 +614,18 @@ class WholeArmITWDataset(Dataset):
             timestamps = sample_timestamps(meta["timestamps"], meta["start_time"], meta["stop_time"])
             self.timestamps[scene_path] = timestamps
             final_timestamp = timestamps[-1]
-            for i in range(len(timestamps)):
-                if final_timestamp - timestamps[i] < cfgs.tps * 1000:
-                    break
+            # print(scene_path, len(timestamps))
+            for i in range(len(timestamps)-1):
+                # if final_timestamp - timestamps[i] < cfgs.tps * 1000:
+                #     print("break")
+                #     break
                 self.data.append({
                     "path": scene_path,
                     "timestamp": timestamps[i],
                     "history_timestamps": find_valid_timestamp_sequence(timestamps, i, cfgs.history_horizon, -1, cfgs.tps),
                     "action_timestamps": find_valid_timestamp_sequence(timestamps, i, cfgs.action_horizon, 1, cfgs.tps)
                 })
+                # print('append')
     
     def __len__(self):
         return len(self.data)
@@ -633,10 +657,12 @@ class WholeArmITWDataset(Dataset):
                 obs_depth = HorizonRecorder(lambda x: torch.stack((self.depth_process(x["depth"]), self.depth_process(x["depth_up"]))))
             else:
                 obs_depth = HorizonRecorder(lambda x: self.depth_process(x["depth"]))
-        obs_joint_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][0:7]).float())
-        obs_joint_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][0:7]).float())
-        obs_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_left"][7])]).float())
-        obs_gripper_r = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_right"][7])]).float())
+        # obs_joint_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][0:7]).float())
+        obs_joint_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"]).float())
+        # obs_joint_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][0:7]).float())
+        obs_joint_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"]).float())
+        # obs_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_left"][7])]).float())
+        # obs_gripper_r = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_right"][7])]).float())
         # 1.2  add current value into horizon recorder
         if self.cfgs.obs_visual_rep:
             obs_rep.add(cur)
@@ -646,8 +672,8 @@ class WholeArmITWDataset(Dataset):
             obs_depth.add(cur)
         obs_joint_l.add(cur)
         obs_joint_r.add(cur)
-        obs_gripper_l.add(cur)
-        obs_gripper_r.add(cur)
+        # obs_gripper_l.add(cur)
+        # obs_gripper_r.add(cur)
         # 1.3  add history values into horizon recorder
         for ts in sample["history_timestamps"]:
             his = np.load(os.path.join(sample["path"], "{}.npy".format(ts)), allow_pickle = True).item()
@@ -659,8 +685,8 @@ class WholeArmITWDataset(Dataset):
                 obs_depth.add(his)
             obs_joint_l.add(his)
             obs_joint_r.add(his)
-            obs_gripper_l.add(his)
-            obs_gripper_r.add(his)
+            # obs_gripper_l.add(his)
+            # obs_gripper_r.add(his)
         # 1.4  padding into the same horizon length
         for _ in range(self.cfgs.history_horizon - len(sample["history_timestamps"])):
             if self.cfgs.obs_visual_rep:
@@ -671,8 +697,8 @@ class WholeArmITWDataset(Dataset):
                 obs_depth.pad()
             obs_joint_l.pad()
             obs_joint_r.pad()
-            obs_gripper_l.pad()
-            obs_gripper_r.pad()
+            # obs_gripper_l.pad()
+            # obs_gripper_r.pad()
         # 1.5  get the final result
         res["obs/is_pad"] = torch.zeros((self.cfgs.history_horizon + 1), dtype = torch.bool)
         res["obs/is_pad"][len(sample["history_timestamps"]) + 1:] = 1
@@ -684,28 +710,30 @@ class WholeArmITWDataset(Dataset):
             res["obs/depth"] = obs_depth.to_tensor()
         res["obs/left_joint"] = obs_joint_l.to_tensor()
         res["obs/right_joint"] = obs_joint_r.to_tensor() 
-        res["obs/left_gripper"] = obs_gripper_l.to_tensor()
-        res["obs/right_gripper"] = obs_gripper_r.to_tensor()
+        # res["obs/left_gripper"] = obs_gripper_l.to_tensor()
+        # res["obs/right_gripper"] = obs_gripper_r.to_tensor()
         # 2. "action/?"  including action horizon
         # 2.1  initialize horizon recorder for each field
         if self.cfgs.action_delta:
             action_robot_l = HorizonRecorder(lambda x, y: torch.from_numpy(x["robot_left"][0:7] - y["robot_left"][0:7]).float())
             action_robot_r = HorizonRecorder(lambda x, y: torch.from_numpy(x["robot_right"][0:7] - y["robot_right"][0:7]).float())
         else:
-            action_robot_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][0:7]).float())
-            action_robot_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][0:7]).float())
-        if self.cfgs.action_gripper_cls:
-            action_gripper_l = HorizonRecorder(
-                lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["robot_left"][7]), convert_gripper(y["robot_left"][7]), self.cfgs.action_gripper_cls_threshold)])
-            )
-        else:
-            action_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_left"][7])]))
-        if self.cfgs.action_gripper_cls:
-            action_gripper_r = HorizonRecorder(
-                lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["robot_right"][7]), convert_gripper(y["robot_right"][7]), self.cfgs.action_gripper_cls_threshold)])
-            )
-        else:
-            action_gripper_r = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_right"][7])]))
+            # action_robot_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"][0:7]).float())
+            # action_robot_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"][0:7]).float())
+            action_robot_l = HorizonRecorder(lambda x: torch.from_numpy(x["robot_left"]).float())
+            action_robot_r = HorizonRecorder(lambda x: torch.from_numpy(x["robot_right"]).float())
+        # if self.cfgs.action_gripper_cls:
+        #     action_gripper_l = HorizonRecorder(
+        #         lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["robot_left"][7]), convert_gripper(y["robot_left"][7]), self.cfgs.action_gripper_cls_threshold)])
+        #     )
+        # else:
+        #     action_gripper_l = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_left"][7])]))
+        # if self.cfgs.action_gripper_cls:
+        #     action_gripper_r = HorizonRecorder(
+        #         lambda x, y: torch.LongTensor([cls_gripper(convert_gripper(x["robot_right"][7]), convert_gripper(y["robot_right"][7]), self.cfgs.action_gripper_cls_threshold)])
+        #     )
+        # else:
+        #     action_gripper_r = HorizonRecorder(lambda x: torch.FloatTensor([convert_gripper(x["robot_right"][7])]))
         action_terminate = HorizonRecorder(lambda x: torch.LongTensor([x]))
         # 2.2  add future action into horizon recorder
         last = cur
@@ -717,30 +745,32 @@ class WholeArmITWDataset(Dataset):
             else:
                 action_robot_l.add(future)
                 action_robot_r.add(future)
-            if self.cfgs.action_gripper_cls:
-                action_gripper_l.add(future, last)
-            else:
-                action_gripper_l.add(future)
-            if self.cfgs.action_gripper_cls:
-                action_gripper_r.add(future, last)
-            else:
-                action_gripper_r.add(future)
+            # if self.cfgs.action_gripper_cls:
+            #     action_gripper_l.add(future, last)
+            # else:
+            #     action_gripper_l.add(future)
+            # if self.cfgs.action_gripper_cls:
+            #     action_gripper_r.add(future, last)
+            # else:
+            #     action_gripper_r.add(future)
             action_terminate.add(ts == self.timestamps[sample["path"]][-1])
             last = future
         # 3.3  padding into the same horizon length
+        # print("self.cfgs.action_horizon", self.cfgs.action_horizon)
+        # print("len(sample[action_timestamps])", len(sample["action_timestamps"]))
         for _ in range(self.cfgs.action_horizon - len(sample["action_timestamps"])):
             action_robot_l.pad(padding_mode = ("zero" if self.cfgs.action_delta else "same"))
             action_robot_r.pad(padding_mode = ("zero" if self.cfgs.action_delta else "same"))
-            action_gripper_l.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
-            action_gripper_r.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
+            # action_gripper_l.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
+            # action_gripper_r.pad(padding_mode = ("zero" if self.cfgs.action_gripper_cls else "same"))
             action_terminate.pad()
         # 3.4  get the final result
         res["action/is_pad"] = torch.zeros((self.cfgs.action_horizon), dtype = torch.bool)
         res["action/is_pad"][len(sample["action_timestamps"]):] = 1
         res["action/left_robot"] = action_robot_l.to_tensor()
         res["action/right_robot"] = action_robot_r.to_tensor()
-        res["action/left_gripper"] = action_gripper_l.to_tensor()
-        res["action/right_gripper"] = action_gripper_r.to_tensor()
+        # res["action/left_gripper"] = action_gripper_l.to_tensor()
+        # res["action/right_gripper"] = action_gripper_r.to_tensor()
         res["action/is_terminate"] = action_terminate.to_tensor()
         # 4. obtain the state and action according to task name
         if self.cfgs.task_name == "gather_balls":
@@ -753,6 +783,11 @@ class WholeArmITWDataset(Dataset):
             res["obs/robot_state_reduced"] = torch.cat([res["obs/left_joint"][:, :], res["obs/left_gripper"][:, :], res["obs/right_joint"][:, :4]], dim = -1).float()
             res["action/robot"] = torch.cat([res["action/left_robot"], res["action/left_gripper"], res["action/right_robot"]], dim = -1).float()
             res["action/robot_reduced"] = torch.cat([res["action/left_robot"][:, :], res["action/left_gripper"][:, :], res["action/right_robot"][:, :4]], dim = -1).float()
+        elif self.cfgs.task_name == "pick_box":
+            res["obs/robot_state"] = torch.cat([res["obs/left_joint"], res["obs/right_joint"]], dim = -1).float()
+            res["obs/robot_state_reduced"] = torch.cat([res["obs/left_joint"][:, :], res["obs/right_joint"][:, :4]], dim = -1).float()
+            res["action/robot"] = torch.cat([res["action/left_robot"], res["action/right_robot"]], dim = -1).float()
+            res["action/robot_reduced"] = torch.cat([res["action/left_robot"][:, :], res["action/right_robot"][:, :4]], dim = -1).float()
         for key in self.cfgs.norm_stats.keys():
             if key in res.keys():
                 res[key] = (res[key] - self.cfgs.norm_stats[key]["mean"]) / self.cfgs.norm_stats[key]["std"]

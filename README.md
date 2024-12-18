@@ -90,6 +90,10 @@ python train.py \
         --dim_feedforward [dim feedforward]
 ```
 
+```
+    python train.py     --ckpt_dir ./checkpoints_pick_box     --policy_class ACT     --task_name pick_box     --batch_size 64     --seed 42     --num_epochs 10     --save_epoch 5     --lr 0.00002     --freq 10     --in_the_wild     --kl_weight 10     --chunk_size 20     --hidden_dim 1024     --dim_feedforward 6400
+```
+
 ### Real-World Evaluation
 
 To evaluate the policy in real world:

@@ -16,6 +16,7 @@ class WholeArmDatasetWrapper(torch.utils.data.Dataset):
             action_horizon = 1
         else:
             action_horizon = chunk_size
+        # print('dataset_dir: ', dataset_dir)
         self.dataset = WholeArmDataset(
             dataset_dir, 
             task_name, 
@@ -27,10 +28,13 @@ class WholeArmDatasetWrapper(torch.utils.data.Dataset):
             obs_visual_rep = False, 
             obs_image_size = (480, 640), 
             norm_stats = norm_stats,
-            scene_filter = (lambda sid: sid % 5 == 2 or sid % 10 == 0),
-            train_val_filter = (lambda sid: sid % 10 != 0)
+            # scene_filter = (lambda sid: sid % 5 == 2 or sid % 10 == 0),
+            scene_filter = (lambda sid: True),
+            # train_val_filter = (lambda sid: sid % 10 == 0)
+            train_val_filter = (lambda sid: sid % 2 != 0),
+            
         )
-        print('Dataset loaded, # {} sample: {}'.format(split, len(self.dataset)))
+        print('WholeArmDatasetWrapper Dataset loaded, # {} sample: {}'.format(split, len(self.dataset)))
 
     def __len__(self):
         return len(self.dataset)
@@ -64,11 +68,13 @@ class WholeArmITWDatasetWrapper(torch.utils.data.Dataset):
             obs_visual_rep = False, 
             obs_image_size = (480, 640), 
             norm_stats = norm_stats, 
-            scene_filter = (lambda sid: sid <= 100),
-            train_val_filter = (lambda sid: sid % 10 != 0),
+            # scene_filter = (lambda sid: sid <= 100),
+            scene_filter = (lambda sid: True),
+            # train_val_filter = (lambda sid: sid % 10 != 0),
+            train_val_filter = (lambda sid: sid % 2 != 0),
             action_gripper_cls_threshold = 0.1
         )
-        print('Dataset loaded, # sample: {}'.format(len(self.dataset)))
+        print('WholeArmITWDatasetWrapper Dataset loaded, # sample: {}'.format(len(self.dataset)))
     
     def __len__(self):
         return len(self.dataset)
@@ -110,6 +116,12 @@ def load_data(dataset_dir, task_name, camera_names, batch_size_train, batch_size
                     'std': np.concatenate((std[0:7], np.array([1.0]), std[7:11]))
                 }
             }
+            norm_stats = res
+            np.save(norm_stats_file, res)
+        elif task_name == "pick_box":
+            keys = ["obs/robot_state_reduced", "action/robot_reduced"]
+            data = get_stats(dataset_dir, lambda x: np.concatenate((x['robot_left'], x['robot_right'])))
+            res = {key: data for key in keys}
             norm_stats = res
             np.save(norm_stats_file, res)
         else:
