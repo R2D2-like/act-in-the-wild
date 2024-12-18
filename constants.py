@@ -1,7 +1,7 @@
 import os
 
 ### Task parameters
-DATA_DIR = '/path/to/data/'    
+DATA_DIR = 'data/'    
 BASE_DIR = '.'
 TASK_CONFIGS = {
     'gather_balls': {
@@ -21,5 +21,15 @@ TASK_CONFIGS = {
         'state_dim': 12,
         'stats_dir': os.path.join(BASE_DIR, 'stats', 'grasp_from_the_curtained_shelf'),
         'norm_stats': os.path.join(BASE_DIR, 'stats', 'grasp_from_the_curtained_shelf', 'norm_stats.npy')
+    },
+    'pick_box': {
+        'dataset_dir': os.path.join(DATA_DIR, 'pick_box'),
+        'dataset_dir_itw': os.path.join(DATA_DIR, 'pick_box-in-the-wild'),
+        'episode_len': 300,
+        'camera_names': ['top'],
+        'state_dim': 8,
+        'stats_dir': os.path.join(BASE_DIR, 'stats', 'pick_box'),
+        'norm_stats': os.path.join(BASE_DIR, 'stats', 'pick_box', 'norm_stats.npy')
     }
+
 }
